@@ -1,23 +1,24 @@
+pub mod args;
 pub mod events;
-pub mod logging;
 pub mod prelude;
+pub mod tracer;
 pub mod tui;
 
 use anyhow::Result;
 use ratatui::crossterm::event::KeyCode;
 use std::io;
 
+use args::Args;
 use events::{Event, EventHandler};
 use prelude::{state::State, Tui};
 
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
-pub fn run() -> Result<()> {
-    start_tui()
+pub fn run(args: Args) -> Result<()> {
+    start_tui(args)
 }
 
-pub fn start_tui(//args: Args
-) -> Result<()> {
+pub fn start_tui(_args: Args) -> Result<()> {
     // Create an application.
     let mut state = State::new()?;
 
@@ -37,7 +38,6 @@ pub fn start_tui(//args: Args
             Event::Tick => {}
             Event::Key(key_event) => {
                 if key_event.code == KeyCode::Char('q') {
-                    tui.exit()?;
                     break;
                 } else {
                     let command = state.find_command(key_event)?;

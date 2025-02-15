@@ -1,5 +1,13 @@
+pub mod args;
+
+use clap::Parser;
+use tasked::args::Args;
+use tracing::info;
+
 #[tokio::main]
 async fn main() {
-    tasked::logging::initialize_logging().unwrap();
-    tasked::run().unwrap()
+    tasked::tracer::initialize_logging().unwrap();
+    info!("Application Started");
+    let args = Args::parse();
+    tasked::run(args).unwrap()
 }

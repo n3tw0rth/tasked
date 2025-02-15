@@ -6,6 +6,7 @@ use ratatui::crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use ratatui::crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
 use ratatui::prelude::{Backend, CrosstermBackend};
 use ratatui::Terminal;
+use tracing::info;
 
 use crate::events::EventHandler;
 
@@ -104,6 +105,7 @@ impl<B: Backend> Tui<B> {
         ratatui::crossterm::execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
         self.terminal.show_cursor()?;
         self.events.stop();
+        info!("Application Exited");
         Ok(())
     }
 }
