@@ -1,4 +1,5 @@
 pub mod args;
+pub mod auth;
 pub mod events;
 pub mod prelude;
 pub mod tracer;
@@ -14,11 +15,16 @@ use prelude::{state::State, Tui};
 
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
-pub fn run(args: Args) -> Result<()> {
-    start_tui(args)
+
+pub async fn run(args: Args) -> Result<()> {
+    start_tui(args).await
 }
 
-pub fn start_tui(_args: Args) -> Result<()> {
+pub async fn start_tui(args: Args) -> Result<()> {
+    if args.login {
+        auth::google::authenticate().await?
+    }
+
     // Create an application.
     let mut state = State::new()?;
 

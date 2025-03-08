@@ -17,10 +17,15 @@ use clap::Parser;
 ",
 )]
 pub struct Args {
+    /// Login to google using oauth
+    #[arg(long)]
+    pub login: bool,
+
     #[arg(short = 'p', long = "project", default_value = "general")]
-    project: String,
-
-    add: Option<String>,
-
-    lables: Option<Vec<String>>,
+    pub project: String,
+    //
+    #[arg(long)]
+    pub add: Option<String>,
+    //
+    //lables: Option<Vec<String>>,
 }
