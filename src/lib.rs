@@ -1,12 +1,13 @@
 pub mod args;
 pub mod auth;
+pub mod cmd;
+pub mod common;
 pub mod events;
 pub mod prelude;
 pub mod tracer;
 pub mod tui;
 
 use anyhow::Result;
-use ratatui::crossterm::event::KeyCode;
 use std::io;
 
 use args::Args;
@@ -16,15 +17,24 @@ use prelude::{state::State, Tui};
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
 
+use cmd::commands::Command;
+
 pub async fn run(args: Args) -> Result<()> {
-    start_tui(args).await
+    // Check if no arguments are passed
+    if std::env::args().len() > 1 {
+        // If there are arguments passed run CLI
+        start_cli(args).await
+    } else {
+        // If there are no arguments run TUI
+        start_tui().await
+    }
 }
 
-pub async fn start_tui(args: Args) -> Result<()> {
-    if args.login {
-        auth::google::authenticate().await?
-    }
+pub async fn start_cli(args: Args) -> Result<()> {
+    Ok(())
+}
 
+pub async fn start_tui() -> Result<()> {
     // Create an application.
     let mut state = State::new()?;
 
@@ -43,12 +53,8 @@ pub async fn start_tui(args: Args) -> Result<()> {
         match tui.events.next()? {
             Event::Tick => {}
             Event::Key(key_event) => {
-                if key_event.code == KeyCode::Char('q') {
-                    break;
-                } else {
-                    let command = state.find_command(key_event)?;
-                    state.run_command(command);
-                }
+                let command = Command::from(key_event);
+                state.run_command(command, tui.events.sender.clone())?;
             }
             Event::Mouse(_mouse_event) => {}
             Event::Resize(_, _) => {}

@@ -10,7 +10,6 @@ use tracing::info;
 
 use crate::events::EventHandler;
 
-pub mod commands;
 pub mod state;
 pub mod ui;
 
