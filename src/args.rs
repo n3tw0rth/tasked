@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 /// Argument parser powered by [`clap`].
 #[derive(Clone, Debug, Default, Parser)]
@@ -17,15 +17,22 @@ use clap::Parser;
 ",
 )]
 pub struct Args {
-    /// Login to google using oauth
-    #[arg(long)]
-    pub login: bool,
+    #[clap(subcommand)]
+    pub command: Option<Command>,
+}
 
-    #[arg(short = 'p', long = "project", default_value = "general")]
-    pub project: String,
-    //
-    #[arg(long)]
-    pub add: Option<String>,
-    //
-    //lables: Option<Vec<String>>,
+#[derive(Clone, Debug, Subcommand)]
+pub enum Command {
+    /// Login to Google using OAuth
+    Login,
+
+    /// Set List
+    #[clap(name = "list")]
+    List {
+        #[clap(short = 'p', long = "list", default_value = "general")]
+        list: String,
+    },
+
+    /// Add something
+    Add { value: String },
 }

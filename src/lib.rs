@@ -1,5 +1,6 @@
 pub mod args;
 pub mod auth;
+pub mod cli;
 pub mod cmd;
 pub mod common;
 pub mod events;
@@ -17,6 +18,7 @@ use prelude::{state::State, Tui};
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
 
+use cli::app::Cli;
 use cmd::commands::Command;
 
 pub async fn run(args: Args) -> Result<()> {
@@ -31,6 +33,9 @@ pub async fn run(args: Args) -> Result<()> {
 }
 
 pub async fn start_cli(args: Args) -> Result<()> {
+    let cli = Cli::new().await;
+    cli.handle_commands(args).await?;
+
     Ok(())
 }
 

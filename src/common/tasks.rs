@@ -28,4 +28,8 @@ impl GoogleTasks {
 
         Ok(())
     }
+
+    pub async fn add_tasks(self) -> Result<()> {
+        unimplemented!()
+    }
 }

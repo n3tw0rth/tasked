@@ -74,7 +74,7 @@ impl GoogleOAuth {
 
     pub async fn sign_in(mut self) -> Result<()> {
         info!("Login into google tasks");
-        if !self.is_connected().await? {
+        if self.is_connected().await.unwrap_or(false) {
             warn!("Already connected to google tasks, Skipping sign in");
             return Ok(());
         }
