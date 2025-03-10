@@ -23,10 +23,17 @@ pub struct GoogleOAuth {
 }
 
 impl GoogleOAuth {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
+        let access_token = String::from_utf8(
+            Entry::new("tasked", "access-token")
+                .unwrap()
+                .get_secret()
+                .unwrap(),
+        )
+        .unwrap_or("".into());
         Self {
-            connected: false,
-            access_token: "".into(),
+            connected: !access_token.is_empty(),
+            access_token,
             refresh_token: "".into(),
         }
     }
@@ -44,10 +51,24 @@ impl GoogleOAuth {
         Ok(())
     }
 
+    pub async fn get_secret(&self, service: &str, secret: &str) -> Result<String> {
+        let secret = String::from_utf8(Entry::new(service, secret)?.get_secret()?)?;
+        Ok(secret)
+    }
+
     pub async fn get_tokens(&mut self) -> Result<String> {
-        self.access_token = String::from_utf8(Entry::new("tasked", "access-token")?.get_secret()?)?;
-        self.refresh_token =
-            String::from_utf8(Entry::new("tasked", "refresh-token")?.get_secret()?)?;
+        self.access_token = self
+            .get_secret("tasked", "access-token")
+            .await
+            .unwrap_or("".into());
+        self.refresh_token = self
+            .get_secret("tasked", "refresh-token")
+            .await
+            .unwrap_or("".into());
+
+        if self.access_token.is_empty() {
+            self.sign_in().await.unwrap();
+        }
         Ok(self.access_token.clone())
     }
 
@@ -66,13 +87,10 @@ impl GoogleOAuth {
     }
 
     pub async fn is_connected(&mut self) -> Result<bool> {
-        // check if the user is already signed in
-        self.get_tokens().await?;
-
         Ok(self.connected)
     }
 
-    pub async fn sign_in(mut self) -> Result<()> {
+    pub async fn sign_in(&mut self) -> Result<()> {
         info!("Login into google tasks");
         if self.is_connected().await.unwrap_or(false) {
             warn!("Already connected to google tasks, Skipping sign in");

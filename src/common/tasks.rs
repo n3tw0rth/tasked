@@ -12,7 +12,7 @@ pub struct GoogleTasks {
 impl GoogleTasks {
     pub async fn new() -> Self {
         Self {
-            access_token: GoogleOAuth::new().get_tokens().await.unwrap(),
+            access_token: GoogleOAuth::new().await.get_tokens().await.unwrap(),
         }
     }
 

@@ -17,7 +17,7 @@ impl Cli {
     pub async fn handle_commands(self, args: Args) -> Result<()> {
         match args.command {
             Some(Command::Login) => {
-                GoogleOAuth::new().sign_in().await?;
+                GoogleOAuth::new().await.sign_in().await?;
             }
             Some(Command::List { list }) => {
                 println!("Using list: {}", list);
