@@ -28,11 +28,16 @@ pub enum Command {
 
     /// Set List
     #[clap(name = "list")]
-    List {
-        #[clap(short = 'p', long = "list", default_value = "general")]
-        list: String,
-    },
+    List { list: ListOption },
 
     /// Add something
     Add { value: String },
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum ListOption {
+    /// Tasks Lists
+    Lists,
+    /// Tasks
+    Tasks,
 }

@@ -1,4 +1,4 @@
-use crate::args::{Args, Command};
+use crate::args::{Args, Command, ListOption};
 use crate::auth::google::GoogleOAuth;
 use crate::common::tasks::GoogleTasks;
 use anyhow::Result;
@@ -19,9 +19,10 @@ impl Cli {
             Some(Command::Login) => {
                 GoogleOAuth::new().await.sign_in().await?;
             }
-            Some(Command::List { list }) => {
-                println!("Using list: {}", list);
-            }
+            Some(Command::List { list }) => match list {
+                ListOption::Lists => self.tasks.get_tasks_lists().await?,
+                ListOption::Tasks => self.tasks.get_tasks(&"").await?,
+            },
             Some(Command::Add { value }) => {
                 println!("Adding {}", value);
                 self.tasks.add_tasks().await?;
