@@ -23,8 +23,9 @@ pub struct Args {
 
 #[derive(Clone, Debug, Subcommand)]
 pub enum Command {
-    /// Login to Google using OAuth
-    Login,
+    /// Set Auth
+    #[clap(name = "auth")]
+    Auth { auth: AuthOption },
 
     /// Set List
     #[clap(name = "list")]
@@ -40,4 +41,14 @@ pub enum ListOption {
     Lists,
     /// Tasks
     Tasks,
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum AuthOption {
+    /// Login to google tasks
+    Login,
+    /// Logout from google tasks
+    Logout,
+    /// Refresh the access token
+    Refresh,
 }

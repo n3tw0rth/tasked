@@ -3,16 +3,18 @@ use keyring::Entry;
 use oauth2::reqwest::Client;
 use oauth2::{basic::BasicClient, basic::BasicTokenType, TokenResponse};
 use oauth2::{
-    reqwest, AccessToken, EmptyExtraTokenFields, StandardRevocableToken, StandardTokenResponse,
+    reqwest, AccessToken, EmptyExtraTokenFields, RefreshToken, StandardRevocableToken,
+    StandardTokenResponse,
 };
 use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
     RevocationUrl, Scope, TokenUrl,
 };
+use reqwest::StatusCode;
 use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
-use tracing::{info, warn};
+use tracing::{debug, error, info, warn};
 use url::Url;
 
 /// Google OAuth for google tasks
@@ -31,11 +33,66 @@ impl GoogleOAuth {
                 .unwrap(),
         )
         .unwrap_or("".into());
+        let refresh_token = String::from_utf8(
+            Entry::new("tasked", "refresh-token")
+                .unwrap()
+                .get_secret()
+                .unwrap(),
+        )
+        .unwrap_or("".into());
         Self {
             connected: !access_token.is_empty(),
             access_token,
-            refresh_token: "".into(),
+            refresh_token,
         }
+    }
+
+    pub async fn refresh_token(&self) -> Result<()> {
+        info!("Refreshing token");
+        let param = [
+            (
+                "client_id",
+                env::var("GOOGLE_CLIENT_ID").unwrap_or("".to_string()),
+            ),
+            (
+                "client_secret",
+                env::var("GOOGLE_CLIENT_SECRET").unwrap_or("".to_string()),
+            ),
+            ("refresh_token", self.refresh_token.clone()),
+            ("grant_type", "refresh_token".to_string()),
+        ];
+        let response = match reqwest::Client::new()
+            .post("https://www.googleapis.com/oauth2/v4/token")
+            .form(&param)
+            .send()
+            .await
+        {
+            Ok(resp) => match resp.status() {
+                StatusCode::OK => {
+                    info!("Refreshed the token");
+                    resp.json().await.unwrap()
+                }
+                _ => {
+                    error!("Cannot refresh the token");
+                    serde_json::Value::default()
+                }
+            },
+            Err(_e) => {
+                error!("Cannot refresh the token");
+                serde_json::Value::default()
+            }
+        };
+
+        self.set_secret(
+            "tasked",
+            "access-token",
+            serde_json::to_string(response.get("access_token").unwrap())
+                .unwrap()
+                .as_bytes(),
+        )
+        .await?;
+
+        Ok(())
     }
 
     pub async fn set_tokens(
@@ -48,6 +105,11 @@ impl GoogleOAuth {
         Entry::new("tasked", "refresh-token")?
             .set_secret(token_response.refresh_token().unwrap().secret().as_bytes())?;
 
+        Ok(())
+    }
+
+    pub async fn set_secret(&self, service: &str, secret: &str, value: &[u8]) -> Result<()> {
+        Entry::new(service, secret)?.set_secret(value)?;
         Ok(())
     }
 
