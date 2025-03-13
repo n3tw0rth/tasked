@@ -17,12 +17,12 @@ cargo-watch = "8.5.3"
 clap = { version = "4.5.29", features = ["derive", "env", "wrap_help", "cargo"] }
 color-eyre = "0.6.3"
 directories = "6.0.0"
-keyring = { version = "3.6.2", features = ["linux-native"] }
+keyring = { version = "3.6.2", features = ["linux-native-sync-persistent","linux-native","sync-secret-service"] }
 lazy_static = "1.5.0"
 oauth2 = { version = "5.0.0"  }  
 open = "5.3.2"
 ratatui = "0.29.0"
-reqwest = { version = "0.12.12", features = ["blocking"] }
+reqwest = { version = "0.12.12", features = ["blocking","json"] }
 serde = "1.0.218"
 serde_json = "1.0.140"
 tokio = { version = "1.43.0", features = ["full"] }

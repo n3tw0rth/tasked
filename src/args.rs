@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 /// Argument parser powered by [`clap`].
 #[derive(Clone, Debug, Default, Parser)]
@@ -17,15 +17,38 @@ use clap::Parser;
 ",
 )]
 pub struct Args {
-    /// Login to google using oauth
-    #[arg(long)]
-    pub login: bool,
+    #[clap(subcommand)]
+    pub command: Option<Command>,
+}
 
-    #[arg(short = 'p', long = "project", default_value = "general")]
-    pub project: String,
-    //
-    #[arg(long)]
-    pub add: Option<String>,
-    //
-    //lables: Option<Vec<String>>,
+#[derive(Clone, Debug, Subcommand)]
+pub enum Command {
+    /// Set Auth
+    #[clap(name = "auth")]
+    Auth { auth: AuthOption },
+
+    /// Set List
+    #[clap(name = "list")]
+    List { list: ListOption },
+
+    /// Add something
+    Add { value: String },
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum ListOption {
+    /// Tasks Lists
+    Lists,
+    /// Tasks
+    Tasks,
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum AuthOption {
+    /// Login to google tasks
+    Login,
+    /// Logout from google tasks
+    Logout,
+    /// Refresh the access token
+    Refresh,
 }
