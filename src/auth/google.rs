@@ -3,8 +3,7 @@ use keyring::Entry;
 use oauth2::reqwest::Client;
 use oauth2::{basic::BasicClient, basic::BasicTokenType, TokenResponse};
 use oauth2::{
-    reqwest, AccessToken, EmptyExtraTokenFields, RefreshToken, StandardRevocableToken,
-    StandardTokenResponse,
+    reqwest, AccessToken, EmptyExtraTokenFields, StandardRevocableToken, StandardTokenResponse,
 };
 use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
@@ -14,7 +13,7 @@ use reqwest::StatusCode;
 use std::env;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use url::Url;
 
 /// Google OAuth for google tasks

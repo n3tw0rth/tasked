@@ -4,6 +4,7 @@ pub mod cli;
 pub mod cmd;
 pub mod common;
 pub mod events;
+pub mod init;
 pub mod prelude;
 pub mod tracer;
 pub mod tui;
@@ -22,6 +23,7 @@ use cli::app::Cli;
 use cmd::commands::Command;
 
 pub async fn run(args: Args) -> Result<()> {
+    init::init()?;
     // Check if no arguments are passed
     if std::env::args().len() > 1 {
         // If there are arguments passed run CLI
