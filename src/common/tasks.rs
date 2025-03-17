@@ -1,25 +1,59 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use chrono::{DateTime, Local};
 use reqwest::StatusCode;
+use serde::Deserialize;
 use tracing::{error, info};
 
 use crate::auth::google::GoogleOAuth;
 
 const TASKS_API_ENDPOINT: &str = "https://tasks.googleapis.com/tasks/v1";
 
+#[derive(Debug, Default, Deserialize)]
+pub struct TasksLists {
+    kind: String,
+    etag: String,
+    items: Option<Vec<TasksList>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TasksList {
+    kind: String,
+    id: String,
+    etag: String,
+    title: String,
+    updated: DateTime<Local>,
+    tasks: Option<Vec<Tasks>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Tasks {
+    kind: String,
+    etag: String,
+    title: String,
+    notes: Option<String>,
+    updated: String,
+    posistion: i8,
+    status: String,
+    web_view_link: String,
+}
+
+/// Tasks Lists and Tasks are from two different apis, using this struct to define the additional
+/// format for tasks response and update the original TasksList with the items from this struct
+#[derive(Debug, Deserialize)]
+pub struct ArbitaryTaskList {}
+
 pub struct GoogleTasks {
-    pub access_token: String,
-    pub task_lists: Vec<String>,
-    pub tasks: HashMap<String, Vec<String>>,
+    pub auth: Box<GoogleOAuth>,
+    pub task_lists: TasksLists,
 }
 
 impl GoogleTasks {
     pub async fn new() -> Self {
         Self {
-            access_token: GoogleOAuth::new().await.get_tokens().await.unwrap(),
-            task_lists: Vec::new(),
-            tasks: HashMap::new(),
+            auth: Box::new(GoogleOAuth::new().await),
+            task_lists: TasksLists::default(),
         }
     }
 
@@ -27,36 +61,44 @@ impl GoogleTasks {
         unimplemented!()
     }
 
-    pub async fn get_tasks_lists(self) -> Result<()> {
+    pub async fn get_tasks_lists(&mut self) -> Result<TasksLists> {
         let response = match reqwest::Client::new()
             .get(format!("{}{}", TASKS_API_ENDPOINT, "/users/@me/lists"))
-            .header("Authorization", format!("Bearer {}", self.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.auth.get_tokens().await.unwrap()),
+            )
             .send()
             .await
         {
             Err(e) => {
                 error!("{}", e);
-                serde_json::Value::default()
+                &TasksLists::default()
             }
             Ok(resp) => match resp.status() {
-                StatusCode::OK => resp.json::<serde_json::Value>().await.unwrap(),
+                StatusCode::OK => resp.json::<&TasksLists>().await.unwrap(),
                 StatusCode::UNAUTHORIZED => {
                     error!("Unauthenicated");
-                    serde_json::Value::default()
+                    self.auth.refresh_token().await?;
+                    let _ = Box::pin(async {
+                        self.get_tasks_lists().await.ok();
+                    })
+                    .await;
+                    &TasksLists::default()
                 }
                 _ => {
-                    error!("{:?}", resp.json::<serde_json::Value>().await.ok());
-                    serde_json::Value::default()
+                    error!("{:?}", resp.json::<TasksLists>().await.ok());
+                    &TasksLists::default()
                 }
             },
         };
 
-        info!("{:?}", response);
+        self.task_lists = response;
 
-        Ok(())
+        Ok(response)
     }
 
-    pub async fn add_tasks(self) -> Result<()> {
+    pub async fn add_tasks(&self) -> Result<()> {
         unimplemented!()
     }
 }

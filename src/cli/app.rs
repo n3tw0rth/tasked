@@ -1,7 +1,9 @@
 use crate::args::{Args, AuthOption, Command, ListOption};
 use crate::auth::google::GoogleOAuth;
 use crate::common::tasks::GoogleTasks;
+
 use anyhow::Result;
+use retry::retry;
 
 pub struct Cli {
     tasks: GoogleTasks,
@@ -14,7 +16,7 @@ impl Cli {
         }
     }
 
-    pub async fn handle_commands(self, args: Args) -> Result<()> {
+    pub async fn handle_commands(mut self, args: Args) -> Result<()> {
         let mut google_auth = GoogleOAuth::new().await;
         match args.command {
             Some(Command::Auth { auth }) => match auth {

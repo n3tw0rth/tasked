@@ -122,10 +122,10 @@ impl GoogleOAuth {
             .get_secret("tasked", "access-token")
             .await
             .unwrap_or("".into());
-        self.refresh_token = self
-            .get_secret("tasked", "refresh-token")
-            .await
-            .unwrap_or("".into());
+        //self.refresh_token = self
+        //    .get_secret("tasked", "refresh-token")
+        //    .await
+        //    .unwrap_or("".into());
 
         if self.access_token.is_empty() {
             self.sign_in().await.unwrap();
