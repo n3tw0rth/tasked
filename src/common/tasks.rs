@@ -1,23 +1,21 @@
-use std::collections::HashMap;
-
 use anyhow::Result;
 use chrono::{DateTime, Local};
 use reqwest::StatusCode;
 use serde::Deserialize;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::auth::google::GoogleOAuth;
 
 const TASKS_API_ENDPOINT: &str = "https://tasks.googleapis.com/tasks/v1";
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct TasksLists {
     kind: String,
     etag: String,
     items: Option<Vec<TasksList>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct TasksList {
     kind: String,
     id: String,
@@ -27,7 +25,7 @@ pub struct TasksList {
     tasks: Option<Vec<Tasks>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Tasks {
     kind: String,
     etag: String,
@@ -57,7 +55,7 @@ impl GoogleTasks {
         }
     }
 
-    pub async fn get_tasks(self, _list: &str) -> Result<()> {
+    pub async fn get_tasks(&self, _list: &str) -> Result<Tasks> {
         unimplemented!()
     }
 
@@ -73,10 +71,10 @@ impl GoogleTasks {
         {
             Err(e) => {
                 error!("{}", e);
-                &TasksLists::default()
+                TasksLists::default()
             }
             Ok(resp) => match resp.status() {
-                StatusCode::OK => resp.json::<&TasksLists>().await.unwrap(),
+                StatusCode::OK => resp.json::<TasksLists>().await.unwrap(),
                 StatusCode::UNAUTHORIZED => {
                     error!("Unauthenicated");
                     self.auth.refresh_token().await?;
@@ -84,17 +82,15 @@ impl GoogleTasks {
                         self.get_tasks_lists().await.ok();
                     })
                     .await;
-                    &TasksLists::default()
+                    TasksLists::default()
                 }
                 _ => {
                     error!("{:?}", resp.json::<TasksLists>().await.ok());
-                    &TasksLists::default()
+                    TasksLists::default()
                 }
             },
         };
-
-        self.task_lists = response;
-
+        self.task_lists = response.clone();
         Ok(response)
     }
 

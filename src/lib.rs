@@ -35,7 +35,7 @@ pub async fn run(args: Args) -> Result<()> {
 }
 
 pub async fn start_cli(args: Args) -> Result<()> {
-    let cli = Cli::new().await;
+    let mut cli = Cli::new().await;
     cli.handle_commands(args).await?;
 
     Ok(())
