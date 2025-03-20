@@ -1,8 +1,12 @@
 use crate::args::{Args, AuthOption, Command, ListOption};
 use crate::auth::google::GoogleOAuth;
+use crate::cli::inline::Inline;
 use crate::common::tasks::{GoogleTasks, Tasks, TasksLists};
 
 use anyhow::Result;
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::Paragraph;
 
 pub struct Cli {
     tasks: GoogleTasks,
@@ -45,7 +49,23 @@ impl Cli {
     // get_tasks and get_tasks_lists return different results
     // in that case cannot use a match expression right away
     async fn cli_get_task_lists(&mut self, task_lists: TasksLists) -> Result<()> {
-        println!("{:?}", task_lists);
+        Inline::new().show(|frame| {
+            let area = frame.area();
+            let lines: Vec<Line<'_>> = task_lists
+                .items
+                .unwrap()
+                .iter()
+                .map(|item| {
+                    Line::from(vec![Span::styled(
+                        item.title.clone(),
+                        Style::default().fg(Color::Green),
+                    )])
+                })
+                .collect();
+
+            let paragraph = Paragraph::new(lines);
+            frame.render_widget(paragraph, area);
+        })?;
         Ok(())
     }
 
