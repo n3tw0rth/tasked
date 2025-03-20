@@ -12,7 +12,7 @@ const TASKS_API_ENDPOINT: &str = "https://tasks.googleapis.com/tasks/v1";
 pub struct TasksLists {
     kind: String,
     etag: String,
-    items: Option<Vec<TasksList>>,
+    pub items: Option<Vec<TasksList>>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -20,7 +20,7 @@ pub struct TasksList {
     kind: String,
     id: String,
     etag: String,
-    title: String,
+    pub title: String,
     updated: DateTime<Local>,
     tasks: Option<Vec<Tasks>>,
 }
