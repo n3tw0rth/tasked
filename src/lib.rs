@@ -7,6 +7,7 @@ pub mod events;
 pub mod prelude;
 pub mod tracer;
 pub mod tui;
+pub mod utils;
 
 use anyhow::Result;
 use std::io;
@@ -22,6 +23,7 @@ use cli::app::Cli;
 use cmd::commands::Command;
 
 pub async fn run(args: Args) -> Result<()> {
+    utils::envs()?;
     // Check if no arguments are passed
     if std::env::args().len() > 1 {
         // If there are arguments passed run CLI
@@ -33,7 +35,7 @@ pub async fn run(args: Args) -> Result<()> {
 }
 
 pub async fn start_cli(args: Args) -> Result<()> {
-    let cli = Cli::new().await;
+    let mut cli = Cli::new().await;
     cli.handle_commands(args).await?;
 
     Ok(())
