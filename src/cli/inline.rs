@@ -1,7 +1,8 @@
 use anyhow::Result;
+use ratatui::crossterm::event::DisableMouseCapture;
+use ratatui::crossterm::execute;
+use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode, LeaveAlternateScreen};
 use ratatui::prelude::Backend;
-use ratatui::text::Line;
-use ratatui::widgets::Block;
 use ratatui::{Frame, Terminal, TerminalOptions, Viewport};
 
 pub struct Inline {}
@@ -16,13 +17,20 @@ impl Inline {
         G: FnOnce(&mut Frame),
     {
         color_eyre::install().unwrap();
+        enable_raw_mode()?;
         let mut terminal = ratatui::init_with_options(TerminalOptions {
             viewport: Viewport::Inline(8),
         });
 
         let _app_result = self.run(&mut terminal, f);
 
-        ratatui::restore();
+        disable_raw_mode()?;
+        execute!(
+            terminal.backend_mut(),
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        )?;
+        terminal.show_cursor()?;
 
         Ok(())
     }
