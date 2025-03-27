@@ -34,10 +34,10 @@ pub struct Tasks {
     kind: String,
     etag: String,
     pub title: String,
-    notes: Option<String>,
+    pub notes: Option<String>,
     updated: String,
     position: String,
-    status: String,
+    pub status: String,
     web_view_link: String,
 }
 
@@ -64,12 +64,16 @@ impl GoogleTasks {
         }
     }
 
-    pub async fn get_tasks(&mut self, list_id: &str) -> Result<TasksLists> {
+    pub async fn sync(&mut self) -> Result<()> {
         // populate the tasks lists if the data is not already fetched
         if self.task_lists.items.iter().len() <= 0 {
             self.get_tasks_lists().await?;
         }
+        Ok(())
+    }
 
+    pub async fn get_tasks_by_list_id(&mut self, list_id: &str) -> Result<TasksLists> {
+        self.sync().await?;
         let tasks = match reqwest::Client::new()
             .get(format!(
                 "{}{}",
@@ -106,6 +110,17 @@ impl GoogleTasks {
         };
 
         self.update_tasks(list_id, tasks.unwrap()).await?;
+        Ok(self.task_lists.clone())
+    }
+
+    pub async fn get_all_tasks(&mut self) -> Result<TasksLists> {
+        self.sync().await?;
+        if let Some(lists) = &self.task_lists.items.clone() {
+            for list in lists.iter() {
+                let id = list.id.clone();
+                self.get_tasks_by_list_id(&id).await?;
+            }
+        }
         Ok(self.task_lists.clone())
     }
 
