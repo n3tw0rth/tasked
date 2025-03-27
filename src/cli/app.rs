@@ -4,10 +4,6 @@ use crate::cli::inline::Inline;
 use crate::common::tasks::{GoogleTasks, Tasks, TasksLists};
 
 use anyhow::Result;
-//use ratatui::style::{Color, Style};
-//use ratatui::text::{Line, Span, Text};
-//use ratatui::widgets::Paragraph;
-use ratatui::{prelude::*, widgets::*};
 use tracing::info;
 pub struct Cli {
     tasks: GoogleTasks,
@@ -54,18 +50,14 @@ impl Cli {
     // in that case cannot use a match expression right away
     async fn cli_get_task_lists(&mut self, task_lists: TasksLists) -> Result<()> {
         Inline::new().show(|| {
-            let lines: Vec<Line<'_>> = task_lists
+            task_lists
                 .items
                 .unwrap()
                 .iter()
                 .enumerate()
-                .map(|(index, item)| {
-                    Line::from(vec![Span::styled(
-                        format!("{}. {}", index + 1, item.title.clone()),
-                        Style::default().fg(Color::Green),
-                    )])
-                })
-                .collect();
+                .for_each(|(index, item)| {
+                    println!("{}. {}", index + 1, item.title.clone());
+                });
         })?;
         Ok(())
     }
