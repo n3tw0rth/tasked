@@ -1,8 +1,10 @@
 use crate::args::{Args, AuthOption, Command, ListOption};
 use crate::auth::google::GoogleOAuth;
 use crate::cli::inline::Inline;
-use crate::common::tasks::{GoogleTasks, Tasks, TasksLists};
+use crate::common::tasks::{GoogleTasks, Tasks, TasksList, TasksLists};
+use crate::common::Priority;
 
+use ansi_term::Colour;
 use anyhow::Result;
 use tracing::info;
 pub struct Cli {
@@ -56,7 +58,11 @@ impl Cli {
                 .iter()
                 .enumerate()
                 .for_each(|(index, item)| {
-                    println!("{}. {}", index + 1, item.title.clone());
+                    println!(
+                        "{}. {}",
+                        Colour::Cyan.paint(index.saturating_add(1).to_string()),
+                        Colour::Blue.paint(item.title.clone())
+                    );
                 });
         })?;
         Ok(())
@@ -66,15 +72,31 @@ impl Cli {
         Inline::new().show(|| {
             task_lists
                 .items
-                .unwrap()
+                .unwrap_or(vec![TasksList::default()])
                 .iter()
                 .enumerate()
-                .for_each(|(_index, item)| {
+                .for_each(|(index, item)| {
+                    println!(
+                        "{}. {}",
+                        Colour::Cyan.paint(index.saturating_add(1).to_string()),
+                        Colour::Blue.paint(item.title.clone())
+                    );
                     item.tasks
                         .as_ref()
                         .unwrap_or(&vec![Tasks::default()])
                         .iter()
-                        .for_each(|task| println!("{}", task.title.clone()))
+                        .for_each(|task| {
+                            let title = task.title.clone();
+                            println!(
+                                "  {}",
+                                Priority::P1.color(
+                                    task.priority
+                                        .clone()
+                                        .unwrap_or(Priority::default())
+                                        .color(title)
+                                )
+                            )
+                        })
                 });
         })?;
         Ok(())

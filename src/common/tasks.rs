@@ -1,10 +1,12 @@
 use anyhow::Result;
 use chrono::{DateTime, Local};
+use regex::{Match, Regex};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use tracing::error;
 
 use crate::auth::google::GoogleOAuth;
+use crate::common::Priority;
 
 const TASKS_API_ENDPOINT: &str = "https://tasks.googleapis.com/tasks/v1";
 
@@ -39,6 +41,7 @@ pub struct Tasks {
     position: String,
     pub status: String,
     web_view_link: String,
+    pub priority: Option<Priority>,
 }
 
 /// Tasks Lists and Tasks are from two different apis, using this struct to define the additional
@@ -124,7 +127,18 @@ impl GoogleTasks {
         Ok(self.task_lists.clone())
     }
 
-    async fn update_tasks(&mut self, list_id: &str, tasks: Vec<Tasks>) -> Result<()> {
+    async fn update_tasks(&mut self, list_id: &str, mut tasks: Vec<Tasks>) -> Result<()> {
+        // extract the priority from the tasks
+        let tasks: Vec<Tasks> = tasks
+            .iter_mut()
+            .map(move |task| {
+                if let Some(p) = Regex::new(r"\[p\d+\]").unwrap().find(task.title.as_str()) {
+                    task.priority = Some(Priority::find(p.as_str()))
+                }
+                task.clone()
+            })
+            .collect();
+
         if let Some(items) = self.task_lists.items.as_mut() {
             if let Some(task_list) = items.iter_mut().into_iter().find(|t| t.id == list_id) {
                 task_list.tasks = Some(tasks)
