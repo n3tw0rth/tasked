@@ -1,8 +1,4 @@
 use anyhow::Result;
-use ratatui::prelude::Backend;
-use ratatui::text::Line;
-use ratatui::widgets::Block;
-use ratatui::{Frame, Terminal, TerminalOptions, Viewport};
 
 pub struct Inline {}
 
@@ -13,32 +9,25 @@ impl Inline {
 
     pub fn show<G>(self, f: G) -> Result<()>
     where
-        G: FnOnce(&mut Frame),
+        G: FnOnce(),
     {
-        color_eyre::install().unwrap();
-        let mut terminal = ratatui::init_with_options(TerminalOptions {
-            viewport: Viewport::Inline(8),
-        });
-
-        let _app_result = self.run(&mut terminal, f);
-
-        ratatui::restore();
+        let _app_result = self.run(f);
 
         Ok(())
     }
 
-    fn run<G>(self, terminal: &mut Terminal<impl Backend>, f: G) -> Result<()>
+    fn run<G>(self, f: G) -> Result<()>
     where
-        G: FnOnce(&mut Frame),
+        G: FnOnce(),
     {
-        terminal.draw(|frame| self.draw(frame, f))?;
+        self.draw(f);
         Ok(())
     }
 
-    fn draw<G>(&self, frame: &mut Frame, f: G)
+    fn draw<G>(&self, f: G)
     where
-        G: FnOnce(&mut Frame),
+        G: FnOnce(),
     {
-        f(frame);
+        f();
     }
 }
