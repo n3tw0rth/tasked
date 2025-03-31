@@ -133,6 +133,7 @@ impl GoogleTasks {
             .iter_mut()
             .map(move |task| {
                 if let Some(p) = Regex::new(r"\[p\d+\]").unwrap().find(task.title.as_str()) {
+                    task.title = task.title.split_once(p.as_str()).unwrap().1.to_string();
                     task.priority = Some(Priority::find(p.as_str()))
                 }
                 task.clone()
