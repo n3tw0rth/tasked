@@ -1,9 +1,9 @@
 use anyhow::Result;
 use chrono::{DateTime, Local};
 use regex::{Match, Regex};
-use reqwest::StatusCode;
+use reqwest::{Client, StatusCode};
 use serde::Deserialize;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::auth::google::GoogleOAuth;
 use crate::common::Priority;
@@ -67,26 +67,28 @@ impl GoogleTasks {
         }
     }
 
+    /// If the tasks lists are empty, fetch from the google API
     pub async fn sync(&mut self) -> Result<()> {
-        // populate the tasks lists if the data is not already fetched
+        // FIXME: write tasks to a local file
+        // At the moment tasks are stored in memory, therefore the tasks should be loaded everytime
+        // before running anything else
         if self.task_lists.items.iter().len() <= 0 {
             self.get_tasks_lists().await?;
         }
         Ok(())
     }
 
+    /// Google tasks requires list id to return tasks under a specific list. This function uses
+    /// the list id to fetch all the tasks goes under that list id
     pub async fn get_tasks_by_list_id(&mut self, list_id: &str) -> Result<TasksLists> {
         self.sync().await?;
-        let tasks = match reqwest::Client::new()
-            .get(format!(
-                "{}{}",
-                TASKS_API_ENDPOINT,
-                format!("/lists/{}/tasks", list_id)
-            ))
-            .header(
-                "Authorization",
-                format!("Bearer {}", self.auth.get_tokens().await.unwrap()),
-            )
+
+        let url = format!("{}/lists/{}/tasks", TASKS_API_ENDPOINT, list_id);
+        let token = self.auth.get_tokens().await.unwrap();
+
+        let tasks = match Client::new()
+            .get(url)
+            .header("Authorization", format!("Bearer {}", token))
             .send()
             .await
         {
@@ -99,11 +101,7 @@ impl GoogleTasks {
                 StatusCode::UNAUTHORIZED => {
                     error!("Unauthenicated");
                     self.auth.refresh_token().await?;
-                    let _ = Box::pin(async {
-                        self.get_tasks_lists().await.ok();
-                    })
-                    .await;
-                    Some(vec![Tasks::default()])
+                    if let Some(tasklist) =  self.get_tasks_by_list_id(list_id).await.ok();
                 }
                 _ => {
                     error!("{:?}", resp.json::<TasksLists>().await.ok());
