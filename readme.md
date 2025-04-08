@@ -1,4 +1,5 @@
 # Tasked 
+🏗️ development in-progress
 
 Tasked is a Terminal User Interface (TUI) application designed to provide quick and easy access to Google Tasks. It emphasizes priority management and streamlined navigation, allowing users to efficiently handle their to-do lists directly from the terminal.
 
