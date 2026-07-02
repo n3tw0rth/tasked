@@ -25,7 +25,9 @@ Tasks apps; the tag just travels along in the notes.
 
 ## Install
 
-Requires Go 1.26+ and a [Google OAuth client](#oauth-credentials).
+Requires a [Google OAuth client](#oauth-credentials).
+
+### From source (Go 1.26+)
 
 ```sh
 git clone https://github.com/n3tw0rth/tasked
@@ -33,6 +35,18 @@ cd tasked
 cp .env.example .env   # add your OAuth client id/secret
 just install           # or: just build
 ```
+
+### Nix / NixOS
+
+```sh
+nix run github:n3tw0rth/tasked            # try it
+nix profile install github:n3tw0rth/tasked
+```
+
+The Nix package does **not** embed OAuth credentials (the nix store is
+world-readable), so set `TASKED_CLIENT_ID` and `TASKED_CLIENT_SECRET` in your
+environment — e.g. via `home.sessionVariables` or a secrets manager like
+sops-nix. A dev shell with Go, gopls, and just is available via `nix develop`.
 
 ## Quick start
 
@@ -51,7 +65,7 @@ tasked done                 # mark tasks completed (multi-select)
 | `add` | Create a task via an inline form (title, due, priority) |
 | `ls` | List tasks sorted by priority (`--all`, `--priority p1..p5`, `--list <id>`) |
 | `done` | Mark tasks completed (multi-select picker) |
-| `move [p1-p5]` | Change task priorities: pick tasks, then a priority (or pass it as the arg) |
+| `move [p1-p5 \| list]` | Pick tasks, then a destination: a priority or another task list |
 | `rm` | Delete tasks (multi-select picker) |
 | `search <query>` | Search tasks by title/notes in the active list |
 | `lists` | Manage task lists: `ls`, `create`, `switch`, `rm` |
@@ -73,6 +87,7 @@ switching the active profile.
 
 ```sh
 tasked move p1        # pick tasks, bump them to highest
+tasked move Work      # pick tasks, move them to the "Work" list
 tasked ls --priority p1
 ```
 
