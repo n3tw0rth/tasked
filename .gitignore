@@ -1,2 +1,3 @@
 /tasked
 *.exe
+.env
