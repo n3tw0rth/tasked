@@ -1,3 +1,4 @@
 /tasked
 *.exe
 .env
+/result
