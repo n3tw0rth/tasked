@@ -104,6 +104,32 @@ func (c *Client) Create(ctx context.Context, listID string, in Task) (Task, erro
 	return taskFromAPI(res), nil
 }
 
+// SetPriority rewrites the [pN] token in the task's notes, keeping the rest
+// of the notes intact. It re-fetches the task first so edits made elsewhere
+// since the task was listed aren't clobbered by the notes patch.
+func (c *Client) SetPriority(ctx context.Context, listID, taskID string, p int) (Task, error) {
+	cur, err := c.svc.Tasks.Get(listID, taskID).Context(ctx).Do()
+	if err != nil {
+		return Task{}, err
+	}
+	patch := &tasksapi.Task{Notes: UpsertPriority(cur.Notes, p)}
+	res, err := c.svc.Tasks.Patch(listID, taskID, patch).Context(ctx).Do()
+	if err != nil {
+		return Task{}, err
+	}
+	return taskFromAPI(res), nil
+}
+
+// MoveToList moves a task to another task list. Notes (including the
+// priority tag), due date, and status travel with the task.
+func (c *Client) MoveToList(ctx context.Context, listID, taskID, destListID string) (Task, error) {
+	res, err := c.svc.Tasks.Move(listID, taskID).DestinationTasklist(destListID).Context(ctx).Do()
+	if err != nil {
+		return Task{}, err
+	}
+	return taskFromAPI(res), nil
+}
+
 func (c *Client) Complete(ctx context.Context, listID, taskID string) error {
 	patch := &tasksapi.Task{Status: "completed"}
 	_, err := c.svc.Tasks.Patch(listID, taskID, patch).Context(ctx).Do()
