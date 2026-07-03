@@ -18,13 +18,43 @@ build:
 build-dev:
     go build -o tasked .
 
-# Build and install into GOBIN
-install: build
+# Build and install (default ~/.local/bin; override: just install /usr/local/bin)
+install dest="~/.local/bin": build
     #!/usr/bin/env bash
     set -euo pipefail
-    bin="$(go env GOBIN)"
-    [ -n "$bin" ] || bin="$(go env GOPATH)/bin"
-    install -m 0755 tasked "$bin/tasked"
+    dest="{{ dest }}"
+    dest="${dest/#\~/$HOME}"
+    mkdir -p "$dest"
+    install -m 0755 tasked "$dest/tasked"
+    echo "installed $dest/tasked"
+    case ":$PATH:" in
+        *":$dest:"*) ;;
+        *) echo "warning: $dest is not on your PATH" ;;
+    esac
+
+# Install shell completions for the current shell (bash|zsh|fish)
+completions shell="bash":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ shell }}" in
+        bash)
+            dir="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
+            mkdir -p "$dir"
+            ./tasked completion bash > "$dir/tasked" ;;
+        zsh)
+            dir="${XDG_DATA_HOME:-$HOME/.local/share}/zsh/site-functions"
+            mkdir -p "$dir"
+            ./tasked completion zsh > "$dir/_tasked"
+            echo "ensure $dir is in your zsh fpath" ;;
+        fish)
+            dir="${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions"
+            mkdir -p "$dir"
+            ./tasked completion fish > "$dir/tasked.fish" ;;
+        *)
+            echo "unsupported shell: {{ shell }} (use bash, zsh, or fish)" >&2
+            exit 1 ;;
+    esac
+    echo "installed {{ shell }} completions"
 
 test:
     go test ./...
