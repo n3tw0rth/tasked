@@ -32,7 +32,7 @@ func newForm() *formModel {
 	t.Focus()
 
 	d := textinput.New()
-	d.Placeholder = "today | tomorrow | 2026-07-15 | 2026-07-15 14:30 | (empty)"
+	d.Placeholder = "tmr | fri | 3d | 2w | eow | 2026-07-15 14:30 | (empty)"
 	d.CharLimit = 40
 	d.Prompt = ""
 

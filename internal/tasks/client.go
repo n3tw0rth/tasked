@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -192,8 +193,29 @@ func SortByPriority(ts []Task) {
 	})
 }
 
-// ParseDueInput accepts "today", "tomorrow", RFC3339, "YYYY-MM-DD", or
-// "YYYY-MM-DD HH:MM" and returns the resulting time in the local timezone.
+var weekdays = map[string]time.Weekday{
+	"sun": time.Sunday, "sunday": time.Sunday,
+	"mon": time.Monday, "monday": time.Monday,
+	"tue": time.Tuesday, "tues": time.Tuesday, "tuesday": time.Tuesday,
+	"wed": time.Wednesday, "weds": time.Wednesday, "wednesday": time.Wednesday,
+	"thu": time.Thursday, "thur": time.Thursday, "thurs": time.Thursday, "thursday": time.Thursday,
+	"fri": time.Friday, "friday": time.Friday,
+	"sat": time.Saturday, "saturday": time.Saturday,
+}
+
+// ParseDueInput accepts a range of shorthand and explicit date forms and
+// returns the resulting time in the local timezone:
+//
+//	today, tod, eod                due end of today
+//	tomorrow, tom, tmr             due end of tomorrow
+//	eow                            end of this week (upcoming Sunday)
+//	mon..sun (or full names)       next occurrence of that weekday
+//	+N                             N days from now
+//	Nd, Nw                         N days / weeks from now (e.g. 3d, 2w)
+//	RFC3339, YYYY-MM-DD,           explicit date / datetime
+//	YYYY-MM-DD HH:MM
+//
+// Shorthand day forms are pinned to 23:59 local time.
 func ParseDueInput(s string) (time.Time, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -201,13 +223,36 @@ func ParseDueInput(s string) (time.Time, error) {
 	}
 	now := time.Now()
 	loc := now.Location()
-	switch strings.ToLower(s) {
-	case "today":
-		return time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 0, 0, loc), nil
-	case "tomorrow":
-		d := now.AddDate(0, 0, 1)
-		return time.Date(d.Year(), d.Month(), d.Day(), 23, 59, 0, 0, loc), nil
+
+	endOfDay := func(t time.Time) time.Time {
+		return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 0, 0, loc)
 	}
+
+	lower := strings.ToLower(s)
+	switch lower {
+	case "today", "tod", "eod":
+		return endOfDay(now), nil
+	case "tomorrow", "tom", "tmr":
+		return endOfDay(now.AddDate(0, 0, 1)), nil
+	case "eow": // end of week: upcoming Sunday (today if already Sunday)
+		days := (int(time.Sunday) - int(now.Weekday()) + 7) % 7
+		return endOfDay(now.AddDate(0, 0, days)), nil
+	}
+
+	// Weekday names -> next occurrence, strictly in the future.
+	if wd, ok := weekdays[lower]; ok {
+		days := (int(wd) - int(now.Weekday()) + 7) % 7
+		if days == 0 {
+			days = 7
+		}
+		return endOfDay(now.AddDate(0, 0, days)), nil
+	}
+
+	// Offset forms: +N (days), Nd (days), Nw (weeks).
+	if t, ok := parseRelativeDue(lower, now, endOfDay); ok {
+		return t, nil
+	}
+
 	layouts := []string{
 		time.RFC3339,
 		"2006-01-02 15:04",
@@ -220,4 +265,28 @@ func ParseDueInput(s string) (time.Time, error) {
 		}
 	}
 	return time.Time{}, fmt.Errorf("unrecognized due date: %q", s)
+}
+
+// parseRelativeDue handles "+N", "Nd", and "Nw". The bool reports whether s
+// matched a relative form (regardless of a leading zero-day offset).
+func parseRelativeDue(s string, now time.Time, endOfDay func(time.Time) time.Time) (time.Time, bool) {
+	if strings.HasPrefix(s, "+") {
+		if n, err := strconv.Atoi(s[1:]); err == nil {
+			return endOfDay(now.AddDate(0, 0, n)), true
+		}
+		return time.Time{}, false
+	}
+	if len(s) >= 2 {
+		unit := s[len(s)-1]
+		if unit == 'd' || unit == 'w' {
+			if n, err := strconv.Atoi(s[:len(s)-1]); err == nil {
+				days := n
+				if unit == 'w' {
+					days = 7 * n
+				}
+				return endOfDay(now.AddDate(0, 0, days)), true
+			}
+		}
+	}
+	return time.Time{}, false
 }
