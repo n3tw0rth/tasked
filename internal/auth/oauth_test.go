@@ -90,8 +90,18 @@ func TestPersistingSourceReauth(t *testing.T) {
 		}
 	}
 
+	// A token issued to a different OAuth client (e.g. after switching
+	// between TASKED_CLIENT_ID and the built-in client) can't be refreshed.
+	mismatch := &oauth2.RetrieveError{ErrorCode: "unauthorized_client", ErrorDescription: "Unauthorized"}
+	p := &persistingSource{profile: "work", src: fakeSource{err: mismatch}}
+	_, got := p.Token()
+	var re *ReauthError
+	if !errors.As(got, &re) || !strings.Contains(re.Error(), "different OAuth client") {
+		t.Errorf("client mismatch: Token() error = %v, want a ReauthError about the client", got)
+	}
+
 	other := errors.New("network down")
-	p := &persistingSource{profile: "work", src: fakeSource{err: other}}
+	p = &persistingSource{profile: "work", src: fakeSource{err: other}}
 	if _, got := p.Token(); got != other {
 		t.Errorf("non-auth error = %v, want it passed through", got)
 	}

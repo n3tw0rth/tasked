@@ -1,4 +1,5 @@
 /tasked
 *.exe
 .env
+client_secret*.json
 /result

@@ -26,20 +26,17 @@ Tasks apps; the tag just travels along in the notes.
 
 ## Install
 
-Requires a [Google OAuth client](#oauth-credentials).
+No Google Cloud setup needed: install, then `tasked login`.
 
 ### From source (Go 1.26+)
 
 ```sh
 git clone https://github.com/n3tw0rth/tasked
 cd tasked
-cp .env.example .env   # add your OAuth client id/secret
 just install           # or: just build
 ```
 
-`go install github.com/n3tw0rth/tasked@latest` also works, but builds without
-embedded credentials: set `TASKED_CLIENT_ID` and `TASKED_CLIENT_SECRET` in
-your environment.
+or `go install github.com/n3tw0rth/tasked@latest`.
 
 ### Nix / NixOS
 
@@ -48,10 +45,7 @@ nix run github:n3tw0rth/tasked            # try it
 nix profile install github:n3tw0rth/tasked
 ```
 
-The Nix package does **not** embed OAuth credentials (the nix store is
-world-readable), so set `TASKED_CLIENT_ID` and `TASKED_CLIENT_SECRET` in your
-environment — e.g. via `home.sessionVariables` or a secrets manager like
-sops-nix. A dev shell with Go, gopls, and just is available via `nix develop`.
+A dev shell with Go, gopls, and just is available via `nix develop`.
 
 ## Quick start
 
@@ -81,6 +75,7 @@ default list.
 | `lists` | Manage task lists: `ls`, `create`, `switch [list]`, `rm [list]` |
 | `profile` | Manage accounts: `list`, `add`, `use`, `remove` |
 | `login` / `logout` | Sign in to Google / remove the saved token |
+| `auth status` | Show which OAuth client is used to sign in |
 
 `ls` and `search` show subtasks nested under their parent task (each level
 sorted by priority). Task commands open an inline picker when no tasks are
@@ -127,30 +122,29 @@ tasked move Work      # pick tasks, move them to the "Work" list
 tasked ls --priority p1
 ```
 
-## OAuth credentials
+## Signing in
 
-`tasked` uses the standard installed-app OAuth flow (loopback redirect with
-PKCE). You need your own OAuth client from the
-[Google Cloud console](https://console.cloud.google.com/):
+`tasked login` uses the standard installed-app OAuth flow (browser sign-in
+with a loopback redirect and PKCE) with tasked's own public OAuth client, so
+there is nothing to set up. Sign-in tokens are stored per profile under
+`~/.config/tasked/tokens/`, readable only by you; nothing is sent anywhere
+except Google.
 
-1. Create a project and enable the **Google Tasks API** for it.
+### Using your own OAuth client
+
+If you'd rather use your own Google Cloud project (for your own API quota, or
+because your Google Workspace admin blocks third-party apps):
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a
+   project and enable the **Google Tasks API**.
 2. Configure the OAuth consent screen (Google Auth Platform) with user type
-   **External**.
-3. Under **Audience**, either add your Google account as a **test user**, or
-   **publish the app**. While the app is in *Testing*, Google expires refresh
-   tokens after 7 days, so you'd have to run `tasked login` again every week.
-   A published but unverified app shows an "unverified app" warning when you
-   sign in, which you can click through for your own account.
-4. Create an OAuth client ID of type **Desktop app**.
+   **External**. Under **Audience**, add your account as a **test user** or
+   **publish the app**: in *Testing*, Google expires sign-ins after 7 days.
+3. Create an OAuth client ID of type **Desktop app**.
+4. Set `TASKED_CLIENT_ID` and `TASKED_CLIENT_SECRET` (e.g. from a secrets
+   manager like sops-nix), then run `tasked login` again for each profile.
 
-Credentials are resolved in this order:
-
-1. `TASKED_CLIENT_ID` / `TASKED_CLIENT_SECRET` environment variables
-2. Values embedded at build time via `-ldflags` (`just build` reads them
-   from `.env`)
-
-Tokens are stored per profile under `~/.config/tasked/tokens/` with `0600`
-permissions. `.env` is gitignored: never commit real credentials.
+`tasked auth status` shows which client is in use.
 
 > When signing in, make sure the **“See, edit, and delete your tasks”**
 > checkbox is ticked on the Google consent screen, or API calls will fail
@@ -159,8 +153,7 @@ permissions. `.env` is gitignored: never commit real credentials.
 ## Development
 
 ```sh
-just build       # release build with credentials from .env
-just build-dev   # dev build, credentials from env vars at runtime
+just build       # build ./tasked
 just test
 just check       # gofmt + vet + tests with -race, same as CI
 just clean

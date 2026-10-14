@@ -12,9 +12,8 @@
       packages = forAllSystems (pkgs: rec {
         default = tasked;
 
-        # Built without embedded OAuth credentials: set TASKED_CLIENT_ID and
-        # TASKED_CLIENT_SECRET at runtime. Embedding via overrideAttrs puts
-        # the secret in the world-readable nix store; prefer the env vars.
+        # Signs in with tasked's built-in public OAuth client; users can set
+        # TASKED_CLIENT_ID/SECRET at runtime to use their own instead.
         tasked = pkgs.buildGoModule rec {
           pname = "tasked";
           version = "0.1.0";

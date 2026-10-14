@@ -30,30 +30,37 @@ var Scopes = []string{
 	"https://www.googleapis.com/auth/userinfo.email",
 }
 
-// ReauthError means a profile's saved sign-in can no longer be refreshed
-// (expired or revoked), so the user has to sign in again.
+// ReauthError means a profile's saved sign-in can no longer be refreshed, so
+// the user has to sign in again: it expired or was revoked (invalid_grant),
+// or it was made with a different OAuth client than the current one
+// (unauthorized_client).
 type ReauthError struct {
 	Profile string
+	Code    string // OAuth error code
 	Reason  string // Google's error_description, if any
 }
 
 func (e *ReauthError) Error() string {
+	login := fmt.Sprintf(" — run `tasked login --profile %s`", e.Profile)
+	if e.Code == "unauthorized_client" {
+		return fmt.Sprintf("sign-in for profile %q was made with a different OAuth client", e.Profile) + login
+	}
 	msg := fmt.Sprintf("sign-in for profile %q has expired or been revoked", e.Profile)
 	if e.Reason != "" {
 		msg += " (" + e.Reason + ")"
 	}
-	return msg + fmt.Sprintf(" — run `tasked login --profile %s`\n"+
-		"(if this happens about once a week, your OAuth app is in Testing mode: see the README)", e.Profile)
+	return msg + login + "\n(if this happens about once a week with your own OAuth client, " +
+		"its app is in Testing mode: see the README)"
 }
 
 func oauthConfig(redirectURL string) (*oauth2.Config, error) {
-	id, secret := ClientID(), ClientSecret()
-	if id == "" || secret == "" {
-		return nil, errors.New("OAuth client credentials are not configured (build with -ldflags or set TASKED_CLIENT_ID/TASKED_CLIENT_SECRET)")
+	c, err := LoadClient()
+	if err != nil {
+		return nil, err
 	}
 	return &oauth2.Config{
-		ClientID:     id,
-		ClientSecret: secret,
+		ClientID:     c.ID,
+		ClientSecret: c.Secret,
 		Endpoint:     google.Endpoint,
 		Scopes:       Scopes,
 		RedirectURL:  redirectURL,
@@ -191,8 +198,8 @@ func (p *persistingSource) Token() (*oauth2.Token, error) {
 	tok, err := p.src.Token()
 	if err != nil {
 		var re *oauth2.RetrieveError
-		if errors.As(err, &re) && re.ErrorCode == "invalid_grant" {
-			return nil, &ReauthError{Profile: p.profile, Reason: re.ErrorDescription}
+		if errors.As(err, &re) && (re.ErrorCode == "invalid_grant" || re.ErrorCode == "unauthorized_client") {
+			return nil, &ReauthError{Profile: p.profile, Code: re.ErrorCode, Reason: re.ErrorDescription}
 		}
 		return nil, err
 	}
