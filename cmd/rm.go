@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -8,61 +9,56 @@ import (
 	"github.com/n3tw0rth/tasked/internal/tui"
 )
 
-var rmShowAll bool
+var (
+	rmShowAll bool
+	rmYes     bool
+)
 
 var rmCmd = &cobra.Command{
-	Use:   "rm",
-	Short: "Delete tasks (inline multi-select)",
+	Use:   "rm [task...]",
+	Short: "Delete tasks (inline multi-select, or by title/ID)",
+	Long:  "Delete tasks. Asks for confirmation unless --yes is given.\n\n" + taskArgsHelp,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, _, prof, err := loadCtx(cmd)
+		ctx, c, tl, err := openList(cmd)
 		if err != nil {
 			return err
 		}
-		listID, _, err := requireActiveList(prof)
+		ts, err := c.Tasks(ctx, tl.ID, rmShowAll)
 		if err != nil {
 			return err
 		}
-		c, err := newTasksClient(ctx, prof)
-		if err != nil {
+		sel, err := selectTasks(ts, args, "Delete tasks — space to toggle", true)
+		if err != nil || len(sel) == 0 {
 			return err
 		}
-		ts, err := c.Tasks(ctx, listID, rmShowAll)
-		if err != nil {
-			return err
+		if !rmYes {
+			if requireTTY() != nil {
+				return errors.New("refusing to delete without confirmation — pass --yes")
+			}
+			for _, t := range sel {
+				printf("  %s  %s\n", tui.PriorityChip(t.Priority), t.Title)
+			}
+			fmt.Printf("%s Delete %d task(s)? type 'yes' to confirm: ", tui.Warn.Render("!"), len(sel))
+			var confirm string
+			fmt.Scanln(&confirm)
+			if confirm != "yes" {
+				printf("%s\n", tui.Dim.Render("aborted"))
+				return nil
+			}
 		}
-		items := make([]tui.PickerItem, 0, len(ts))
-		for _, t := range ts {
-			items = append(items, tui.PickerItem{
-				ID:    t.ID,
-				Label: t.Title,
-				Chip:  tui.PriorityChip(t.Priority),
-			})
-		}
-		res, err := tui.RunPicker("Delete tasks — space to toggle", items, true)
-		if err != nil {
-			return err
-		}
-		if res.Cancel || len(res.Selected) == 0 {
-			return nil
-		}
-		fmt.Printf("%s Delete %d task(s)? type 'yes' to confirm: ", tui.Warn.Render("!"), len(res.Selected))
-		var confirm string
-		fmt.Scanln(&confirm)
-		if confirm != "yes" {
-			printf("%s\n", tui.Dim.Render("aborted"))
-			return nil
-		}
-		for _, it := range res.Selected {
-			if err := c.Delete(ctx, listID, it.ID); err != nil {
+		for _, t := range sel {
+			if err := c.Delete(ctx, tl.ID, t.ID); err != nil {
 				return err
 			}
 		}
-		printf("%s Deleted %d task(s)\n", tui.Ok.Render("✓"), len(res.Selected))
+		printf("%s Deleted %d task(s)\n", tui.Ok.Render("✓"), len(sel))
 		return nil
 	},
 }
 
 func init() {
 	rmCmd.Flags().BoolVar(&rmShowAll, "all", false, "include completed tasks")
+	rmCmd.Flags().BoolVarP(&rmYes, "yes", "y", false, "skip the confirmation prompt")
+	addListFlag(rmCmd)
 	rootCmd.AddCommand(rmCmd)
 }

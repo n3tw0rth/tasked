@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+
 	"github.com/spf13/cobra"
 
 	"github.com/n3tw0rth/tasked/internal/auth"
@@ -23,22 +25,29 @@ var loginCmd = &cobra.Command{
 		if name == "" {
 			name = "default"
 		}
-		email, err := auth.Login(cmd.Context(), name)
+		prof, err := signIn(cmd.Context(), cfg, name)
 		if err != nil {
 			return err
 		}
-		prof := cfg.Profiles[name]
-		if prof == nil {
-			prof = &config.Profile{Name: name}
-		}
-		prof.Email = email
-		cfg.UpsertProfile(prof)
-		if err := cfg.Save(); err != nil {
-			return err
-		}
-		printf("%s Signed in as %s (profile: %s)\n", tui.Ok.Render("✓"), email, name)
+		printf("%s Signed in as %s (profile: %s)\n", tui.Ok.Render("✓"), prof.Email, name)
 		return nil
 	},
+}
+
+// signIn runs the browser sign-in for the named profile and saves it,
+// keeping the existing profile's settings (such as its active list).
+func signIn(ctx context.Context, cfg *config.Config, name string) (*config.Profile, error) {
+	email, err := auth.Login(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	prof := cfg.Profiles[name]
+	if prof == nil {
+		prof = &config.Profile{Name: name}
+	}
+	prof.Email = email
+	cfg.UpsertProfile(prof)
+	return prof, cfg.Save()
 }
 
 func init() { rootCmd.AddCommand(loginCmd) }

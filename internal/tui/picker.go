@@ -145,8 +145,13 @@ func (m *pickerModel) View() string {
 }
 
 // RunPicker shows an inline picker. If multi is false, at most one item is
-// returned. Result.Cancel is true if the user hit esc/ctrl-c.
+// returned. Result.Cancel is true if the user hit esc/ctrl-c. With no items
+// it returns an empty result immediately instead of waiting for a key.
+// Selected items keep the order they were shown in.
 func RunPicker(title string, items []PickerItem, multi bool) (PickerResult, error) {
+	if len(items) == 0 {
+		return PickerResult{}, nil
+	}
 	m := newPicker(title, items, multi)
 	p := tea.NewProgram(m)
 	if _, err := p.Run(); err != nil {
@@ -154,9 +159,9 @@ func RunPicker(title string, items []PickerItem, multi bool) (PickerResult, erro
 	}
 	res := PickerResult{Cancel: m.cancel}
 	if !m.cancel {
-		for i, ok := range m.chosen {
-			if ok && i >= 0 && i < len(items) {
-				res.Selected = append(res.Selected, items[i])
+		for i, it := range items {
+			if m.chosen[i] {
+				res.Selected = append(res.Selected, it)
 			}
 		}
 	}

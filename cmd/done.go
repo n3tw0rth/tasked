@@ -7,53 +7,35 @@ import (
 )
 
 var doneCmd = &cobra.Command{
-	Use:   "done",
-	Short: "Mark tasks completed (inline multi-select)",
+	Use:   "done [task...]",
+	Short: "Mark tasks completed (inline multi-select, or by title/ID)",
+	Long:  "Mark tasks completed.\n\n" + taskArgsHelp,
+	Example: `  tasked done
+  tasked done "Pay rent" milk`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, _, prof, err := loadCtx(cmd)
+		ctx, c, tl, err := openList(cmd)
 		if err != nil {
 			return err
 		}
-		listID, _, err := requireActiveList(prof)
+		ts, err := c.Tasks(ctx, tl.ID, false)
 		if err != nil {
 			return err
 		}
-		c, err := newTasksClient(ctx, prof)
-		if err != nil {
+		sel, err := selectTasks(ts, args, "Mark as done — space to toggle", true)
+		if err != nil || len(sel) == 0 {
 			return err
 		}
-		ts, err := c.Tasks(ctx, listID, false)
-		if err != nil {
-			return err
-		}
-		items := make([]tui.PickerItem, 0, len(ts))
-		for _, t := range ts {
-			extra := ""
-			if t.HasDue {
-				extra = t.Due.Format("Jan 2")
-			}
-			items = append(items, tui.PickerItem{
-				ID:    t.ID,
-				Label: t.Title,
-				Chip:  tui.PriorityChip(t.Priority),
-				Extra: extra,
-			})
-		}
-		res, err := tui.RunPicker("Mark as done — space to toggle", items, true)
-		if err != nil {
-			return err
-		}
-		if res.Cancel || len(res.Selected) == 0 {
-			return nil
-		}
-		for _, it := range res.Selected {
-			if err := c.Complete(ctx, listID, it.ID); err != nil {
+		for _, t := range sel {
+			if err := c.Complete(ctx, tl.ID, t.ID); err != nil {
 				return err
 			}
 		}
-		printf("%s Completed %d task(s)\n", tui.Ok.Render("✓"), len(res.Selected))
+		printf("%s Completed %d task(s)\n", tui.Ok.Render("✓"), len(sel))
 		return nil
 	},
 }
 
-func init() { rootCmd.AddCommand(doneCmd) }
+func init() {
+	addListFlag(doneCmd)
+	rootCmd.AddCommand(doneCmd)
+}
