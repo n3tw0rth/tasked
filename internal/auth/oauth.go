@@ -30,6 +30,22 @@ var Scopes = []string{
 	"https://www.googleapis.com/auth/userinfo.email",
 }
 
+// ReauthError means a profile's saved sign-in can no longer be refreshed
+// (expired or revoked), so the user has to sign in again.
+type ReauthError struct {
+	Profile string
+	Reason  string // Google's error_description, if any
+}
+
+func (e *ReauthError) Error() string {
+	msg := fmt.Sprintf("sign-in for profile %q has expired or been revoked", e.Profile)
+	if e.Reason != "" {
+		msg += " (" + e.Reason + ")"
+	}
+	return msg + fmt.Sprintf(" — run `tasked login --profile %s`\n"+
+		"(if this happens about once a week, your OAuth app is in Testing mode: see the README)", e.Profile)
+}
+
 func oauthConfig(redirectURL string) (*oauth2.Config, error) {
 	id, secret := ClientID(), ClientSecret()
 	if id == "" || secret == "" {
@@ -44,8 +60,8 @@ func oauthConfig(redirectURL string) (*oauth2.Config, error) {
 	}, nil
 }
 
-// Login runs the loopback OAuth flow and saves the resulting token under
-// the given profile name. It returns the user's email address.
+// Login runs the loopback OAuth flow (with PKCE) and saves the resulting
+// token under the given profile name. It returns the user's email address.
 func Login(ctx context.Context, profileName string) (string, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -66,39 +82,21 @@ func Login(ctx context.Context, profileName string) (string, error) {
 		return "", err
 	}
 	state := hex.EncodeToString(stateBytes)
+	verifier := oauth2.GenerateVerifier()
 
-	authURL := cfg.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
+	authURL := cfg.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce, oauth2.S256ChallengeOption(verifier))
 
-	type result struct {
-		code string
-		err  error
-	}
-	resCh := make(chan result, 1)
+	resCh := make(chan callbackResult, 1)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		if got := q.Get("state"); got != state {
-			http.Error(w, "bad state", http.StatusBadRequest)
-			resCh <- result{err: errors.New("state mismatch")}
-			return
-		}
-		if e := q.Get("error"); e != "" {
-			http.Error(w, e, http.StatusBadRequest)
-			resCh <- result{err: fmt.Errorf("oauth error: %s", e)}
-			return
-		}
-		code := q.Get("code")
-		if code == "" {
-			http.Error(w, "missing code", http.StatusBadRequest)
-			resCh <- result{err: errors.New("missing code")}
-			return
-		}
-		fmt.Fprintln(w, "<!doctype html><html><body><h2>tasked: signed in.</h2><p>You can close this tab.</p></body></html>")
-		resCh <- result{code: code}
-	})
-	srv := &http.Server{Handler: mux}
+	mux.Handle("/callback", callbackHandler(state, resCh))
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() { _ = srv.Serve(ln) }()
-	defer srv.Shutdown(context.Background())
+	defer func() {
+		// Bounded so a lingering browser connection can't hang the CLI.
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+	}()
 
 	fmt.Println("Opening browser for Google sign-in...")
 	fmt.Println("(listening on", redirect+")")
@@ -120,19 +118,51 @@ func Login(ctx context.Context, profileName string) (string, error) {
 		return "", ctx.Err()
 	}
 
-	tok, err := cfg.Exchange(ctx, code)
+	tok, err := cfg.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
 		return "", fmt.Errorf("token exchange: %w", err)
 	}
-	if err := saveToken(profileName, tok); err != nil {
-		return "", err
-	}
-
 	email, err := fetchEmail(ctx, cfg, tok)
 	if err != nil {
 		return "", fmt.Errorf("fetch userinfo: %w", err)
 	}
+	if err := saveToken(profileName, tok); err != nil {
+		return "", err
+	}
 	return email, nil
+}
+
+type callbackResult struct {
+	code string
+	err  error
+}
+
+// callbackHandler serves the OAuth redirect. Requests with the wrong state
+// are rejected without ending the login (they can't be Google's redirect),
+// and only the first matching request is delivered, so a reload or prefetch
+// never blocks on resCh. resCh must have a buffer of at least 1.
+func callbackHandler(state string, resCh chan<- callbackResult) http.Handler {
+	var once sync.Once
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("state") != state {
+			http.Error(w, "bad state", http.StatusBadRequest)
+			return
+		}
+		var res callbackResult
+		switch {
+		case q.Get("error") != "":
+			res.err = fmt.Errorf("oauth error: %s", q.Get("error"))
+			http.Error(w, q.Get("error"), http.StatusBadRequest)
+		case q.Get("code") == "":
+			res.err = errors.New("missing code")
+			http.Error(w, "missing code", http.StatusBadRequest)
+		default:
+			res.code = q.Get("code")
+			fmt.Fprintln(w, "<!doctype html><html><body><h2>tasked: signed in.</h2><p>You can close this tab.</p></body></html>")
+		}
+		once.Do(func() { resCh <- res })
+	})
 }
 
 // TokenSource returns an oauth2.TokenSource for the given profile that persists
@@ -160,6 +190,10 @@ type persistingSource struct {
 func (p *persistingSource) Token() (*oauth2.Token, error) {
 	tok, err := p.src.Token()
 	if err != nil {
+		var re *oauth2.RetrieveError
+		if errors.As(err, &re) && re.ErrorCode == "invalid_grant" {
+			return nil, &ReauthError{Profile: p.profile, Reason: re.ErrorDescription}
+		}
 		return nil, err
 	}
 	p.mu.Lock()

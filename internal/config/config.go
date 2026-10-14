@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"gopkg.in/yaml.v3"
 )
@@ -133,9 +134,8 @@ func (c *Config) RemoveProfile(name string) error {
 	delete(c.Profiles, name)
 	if c.ActiveProfile == name {
 		c.ActiveProfile = ""
-		for n := range c.Profiles {
-			c.ActiveProfile = n
-			break
+		if names := c.ProfileNames(); len(names) > 0 {
+			c.ActiveProfile = names[0]
 		}
 	}
 	tp, err := TokenPath(name)
@@ -143,4 +143,14 @@ func (c *Config) RemoveProfile(name string) error {
 		_ = os.Remove(tp)
 	}
 	return nil
+}
+
+// ProfileNames returns the profile names in sorted order.
+func (c *Config) ProfileNames() []string {
+	names := make([]string, 0, len(c.Profiles))
+	for n := range c.Profiles {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/n3tw0rth/tasked/internal/auth"
 	"github.com/n3tw0rth/tasked/internal/config"
 	"github.com/n3tw0rth/tasked/internal/tui"
 )
@@ -27,7 +26,8 @@ var profileListCmd = &cobra.Command{
 			printf("%s\n", tui.Dim.Render("no profiles yet — run `tasked login`"))
 			return nil
 		}
-		for name, p := range cfg.Profiles {
+		for _, name := range cfg.ProfileNames() {
+			p := cfg.Profiles[name]
 			marker := "  "
 			if name == cfg.ActiveProfile {
 				marker = tui.Selected.Render("* ")
@@ -73,16 +73,11 @@ var profileAddCmd = &cobra.Command{
 			return err
 		}
 		name := args[0]
-		email, err := auth.Login(cmd.Context(), name)
+		prof, err := signIn(cmd.Context(), cfg, name)
 		if err != nil {
 			return err
 		}
-		prof := &config.Profile{Name: name, Email: email}
-		cfg.UpsertProfile(prof)
-		if err := cfg.Save(); err != nil {
-			return err
-		}
-		printf("%s Added profile %s (%s)\n", tui.Ok.Render("✓"), name, email)
+		printf("%s Added profile %s (%s)\n", tui.Ok.Render("✓"), name, prof.Email)
 		return nil
 	},
 }

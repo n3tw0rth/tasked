@@ -3,7 +3,8 @@ package auth
 import "os"
 
 // Set at build time with:
-//   -ldflags "-X github.com/n3tw0rth/tasked/internal/auth.clientID=... -X github.com/n3tw0rth/tasked/internal/auth.clientSecret=..."
+//
+//	-ldflags "-X github.com/n3tw0rth/tasked/internal/auth.clientID=... -X github.com/n3tw0rth/tasked/internal/auth.clientSecret=..."
 var (
 	clientID     = ""
 	clientSecret = ""

@@ -9,39 +9,44 @@ import (
 const (
 	Highest = 1
 	Lowest  = 5
+	// Default is the priority of new tasks and of untagged tasks (e.g. ones
+	// created in the Google Tasks apps), so those aren't buried at the bottom.
+	Default = 3
 )
 
 var priorityRE = regexp.MustCompile(`(?i)\[p([1-5])\]`)
 
-// ParsePriority returns the priority number 1..5 found in notes; if none is
-// present, it returns Lowest (5).
+// HasPriority reports whether notes carry a [pN] tag.
+func HasPriority(notes string) bool {
+	return priorityRE.MatchString(notes)
+}
+
+// ParsePriority returns the priority number 1..5 from the first [pN] tag in
+// notes; if none is present, it returns Default (3).
 func ParsePriority(notes string) int {
 	m := priorityRE.FindStringSubmatch(notes)
 	if len(m) < 2 {
-		return Lowest
+		return Default
 	}
-	switch m[1] {
-	case "1":
-		return 1
-	case "2":
-		return 2
-	case "3":
-		return 3
-	case "4":
-		return 4
-	default:
-		return 5
-	}
+	return int(m[1][0] - '0')
 }
 
-// StripPriority removes the [pN] token (case-insensitive) and any single
-// leading/trailing whitespace that surrounded it.
+// StripPriority removes the first [pN] tag (the one ParsePriority reads) and
+// a single space after it, then trims the result. Any other text, including
+// later [pN] tags, is left alone.
 func StripPriority(notes string) string {
-	stripped := priorityRE.ReplaceAllString(notes, "")
-	return strings.TrimSpace(stripped)
+	loc := priorityRE.FindStringIndex(notes)
+	if loc == nil {
+		return strings.TrimSpace(notes)
+	}
+	end := loc[1]
+	if end < len(notes) && notes[end] == ' ' {
+		end++
+	}
+	return strings.TrimSpace(notes[:loc[0]] + notes[end:])
 }
 
-// UpsertPriority strips any existing [pN] token and prepends a fresh one.
+// UpsertPriority strips the existing [pN] tag and prepends a fresh one.
 // If p is outside 1..5, it clamps to the allowed range.
 func UpsertPriority(notes string, p int) string {
 	if p < Highest {
