@@ -55,5 +55,15 @@ check:
     go vet ./...
     go test -race ./...
 
+# Set the version in flake.nix before tagging a release (just bump 0.2.0)
+bump new_version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    v="{{ new_version }}"
+    v="${v#v}"
+    sed -i -E "s/^( *version = )\"[^\"]*\";/\1\"$v\";/" flake.nix
+    grep -qF "version = \"$v\";" flake.nix || { echo "could not set version in flake.nix" >&2; exit 1; }
+    echo "flake.nix version is now $v; commit, then: git tag -a v$v -m v$v"
+
 clean:
     rm -f tasked
