@@ -16,7 +16,7 @@
         # TASKED_CLIENT_ID/SECRET at runtime to use their own instead.
         tasked = pkgs.buildGoModule rec {
           pname = "tasked";
-          version = "0.1.0";
+          version = "0.2.0-rc.1";
           src = self;
           vendorHash = "sha256-xQ9UYZJJFM1cwT7PcXzh1lNOoRr4Cx311n9id0F5u4c=";
           env.CGO_ENABLED = 0;

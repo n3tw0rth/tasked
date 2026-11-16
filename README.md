@@ -28,6 +28,28 @@ Tasks apps; the tag just travels along in the notes.
 
 No Google Cloud setup needed: install, then `tasked login`.
 
+### Prebuilt binaries (Linux, Windows)
+
+Each [release](https://github.com/n3tw0rth/tasked/releases) has archives for
+Linux and Windows on `amd64` and `arm64`, plus a `checksums.txt` (SHA-256).
+
+Linux (use `arm64` in the file name on ARM machines):
+
+```sh
+curl -fsSLO https://github.com/n3tw0rth/tasked/releases/latest/download/tasked_linux_amd64.tar.gz
+tar -xzf tasked_linux_amd64.tar.gz tasked
+install -Dm755 tasked ~/.local/bin/tasked
+```
+
+Windows (PowerShell):
+
+```powershell
+Invoke-WebRequest https://github.com/n3tw0rth/tasked/releases/latest/download/tasked_windows_amd64.zip -OutFile tasked.zip
+Expand-Archive tasked.zip -DestinationPath "$env:LOCALAPPDATA\Programs\tasked" -Force
+```
+
+Then add `%LOCALAPPDATA%\Programs\tasked` to your `PATH`.
+
 ### From source (Go 1.26+)
 
 ```sh
